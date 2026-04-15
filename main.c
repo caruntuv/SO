@@ -1,5 +1,14 @@
 #include<stdio.h>
 #include<string.h>
+#include<sys/stat.h>
+#include<sys/types.h>
+#include<fcntl.h>
+#include<unistd.h>
+
+void create_district()
+{
+  
+}
 
 int main(int argc, char *argv[])
 {
@@ -10,6 +19,7 @@ int main(int argc, char *argv[])
     }
   char role[20];
   char user[50];
+  char district[50];
 
   for(int i=1;i<argc;i++)
     {
@@ -21,9 +31,18 @@ int main(int argc, char *argv[])
 	{
 	  strcpy(user,argv[i+1]);
 	}
+	   if (strcmp(argv[i], "--add") == 0)
+	{
+	  strcpy(district,argv[i+1]);
+	}
+    }
+  if (strcmp(role, "manager") !=0)
+    {
+      printf("not manager\n");
+      return 1;
     }
   printf("Role: %s\n", role);
   printf("User: %s\n", user);
-  
+  create_district(district);
   return 0;
 }
