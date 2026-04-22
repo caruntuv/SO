@@ -22,6 +22,41 @@ typedef struct {
     char description[DESC_LEN];
 } Report;
 
+int has_permission(const char *path, const char *role, int permission) {
+    struct stat st;
+
+    if (stat(path, &st) == -1) {
+        perror("stat error");
+        return 0;
+    }
+
+    if (strcmp(role, "manager") == 0) {
+        return (st.st_mode & permission);
+    } else {
+        return (st.st_mode & (permission >> 3));
+    }
+}
+
+void print_permissions(mode_t mode) {
+    char perms[10];
+
+    perms[0] = (mode & S_IRUSR) ? 'r' : '-';
+    perms[1] = (mode & S_IWUSR) ? 'w' : '-';
+    perms[2] = (mode & S_IXUSR) ? 'x' : '-';
+
+    perms[3] = (mode & S_IRGRP) ? 'r' : '-';
+    perms[4] = (mode & S_IWGRP) ? 'w' : '-';
+    perms[5] = (mode & S_IXGRP) ? 'x' : '-';
+
+    perms[6] = (mode & S_IROTH) ? 'r' : '-';
+    perms[7] = (mode & S_IWOTH) ? 'w' : '-';
+    perms[8] = (mode & S_IXOTH) ? 'x' : '-';
+
+    perms[9] = '\0';
+
+    printf("Permissions: %s\n", perms);
+}
+
 void create_district(const char *name) {
     char base_path[100] = "districts/";
     char full_path[100];
@@ -100,13 +135,18 @@ void log_action(const char *district, const char *role, const char *user, const 
     close(fd);
 }
 
-void add_report(const char *district, const char *user) {
+void add_report(const char *district, const char *user, const char *role) {
     char path[150];
 
     // build path to reports.dat
     strcpy(path, "districts/");
     strcat(path, district);
     strcat(path, "/reports.dat");
+    
+    if (!has_permission(path, role, S_IWUSR)) {
+    printf("Write access denied for this role!\n");
+    return;//verificare permisiuni adaugata dupa
+}
 
     int fd = open(path, O_WRONLY | O_APPEND);
 
@@ -114,11 +154,20 @@ void add_report(const char *district, const char *user) {
         perror("Error opening reports file");
         return;
     }
+    struct stat st;
+
+if (stat(path, &st) == -1) {
+    perror("stat error");
+    close(fd);
+    return;
+}
+ int count = st.st_size / sizeof(Report);//determinare id
+int next_id = count + 1;
 
     Report r;
 
     // TEMP values (we'll improve later)
-    r.id = 1;  // later we auto-increment
+    r.id = next_id;  // later we auto-increment
     strcpy(r.inspector, user);
     r.latitude = 45.75;
     r.longitude = 21.23;
@@ -134,6 +183,48 @@ void add_report(const char *district, const char *user) {
     printf("Report added!\n");
 }
 
+void list_reports(const char *district,const char *role) {
+    char path[150];
+
+    strcpy(path, "districts/");
+    strcat(path, district);
+    strcat(path, "/reports.dat");
+
+    struct stat st;
+  if (stat(path, &st) == -1) {
+    perror("stat error");
+    return;
+  }
+  if (!has_permission(path, role, S_IRUSR)) {
+    printf("Read access denied for this role!\n");
+    return;
+  }
+
+    int fd = open(path, O_RDONLY);
+
+    if (fd == -1) {
+        perror("Error opening reports file");
+        return;
+    }
+  
+  printf("File size: %ld bytes\n", st.st_size);
+printf("Last modified: %s", ctime(&st.st_mtime));
+
+print_permissions(st.st_mode);
+  
+
+    Report r;
+
+    printf("---- Reports ----\n");
+
+    while (read(fd, &r, sizeof(Report)) > 0) {
+        printf("ID: %d | Inspector: %s | Category: %s | Severity: %d\n",
+               r.id, r.inspector, r.category, r.severity);
+    }
+
+    close(fd);
+}
+
 int main(int argc, char *argv[])
 {
     if (argc < 5) {
@@ -146,6 +237,7 @@ int main(int argc, char *argv[])
     char district[50] = "";
     int add_flag = 0;
     int report_flag = 0;
+    int list_flag = 0;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--role") == 0 && i + 1 < argc) {
@@ -164,33 +256,43 @@ int main(int argc, char *argv[])
 	  strcpy(district, argv[i + 1]);
 	  report_flag = 1;
 	}
+	if (strcmp(argv[i], "--list") == 0 && i + 1 < argc) {
+	  strcpy(district, argv[i + 1]);
+	  list_flag = 1;
+	}
     }
 
-    if (add_flag && strcmp(role, "manager") != 0) {
+    if (add_flag) {
+    if (strcmp(role, "manager") != 0) {
         printf("Only manager can add districts!\n");
         return 1;
     }
 
-    if (add_flag) {
-        create_district(district);
-	char action[100] = "created district ";
-	strcat(action, district);
-	log_action(district, role, user, action);
-    } else {
-        printf("No valid command provided.\n");
+    create_district(district);
+
+    char action[100] = "created district ";
+    strcat(action, district);
+    log_action(district, role, user, action);
+}
+else if (report_flag) {
+    if (strcmp(role, "inspector") != 0) {
+        printf("Only inspector can add reports!\n");
+        return 1;
     }
 
-    if (report_flag && strcmp(role, "inspector") != 0) {
-    printf("Only inspector can add reports!\n");
-    return 1;
-    }
-    if (report_flag) {
-    add_report(district, user);
+    add_report(district, user, role);
 
     char action[100] = "added report in ";
     strcat(action, district);
+    log_action(district, role, user, action);
+}
+    else if (list_flag) {
+      list_reports(district,role);
+}
+else {
+    printf("No valid command provided.\n");
+}
 
-    log_action(district, role, user, action);}
-
+   
     return 0;
 }

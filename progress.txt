@@ -1,0 +1,183 @@
+🧭 Overview
+
+This project implements a city infrastructure issue reporting system in C using UNIX system calls.
+
+The system allows:
+
+creation of districts
+storing reports in binary format
+logging all actions
+enforcing access control using file permissions
+listing reports along with file metadata
+🧱 Project Structure
+
+Each district is stored as a directory:
+
+districts/<district_name>/
+
+Inside each district:
+
+reports.dat        → binary file storing reports
+district.cfg       → configuration file (severity threshold)
+logged_district    → log file of all actions
+👥 User Roles
+
+Two roles are supported:
+
+manager
+can create districts
+owns files (owner permissions)
+inspector
+can add and view reports
+treated as group user
+
+Roles are passed via command line:
+
+./city_manager --role manager --user Vlad --add downtown
+🔐 Permission System
+
+The system simulates UNIX access control using stat().
+
+File / Directory	Permissions	Meaning
+District directory	750	manager full, inspector read/execute
+reports.dat	664	both read/write
+district.cfg	640	manager read/write, inspector read
+logged_district	644	manager write, everyone read
+🧠 Permission Checking
+
+Implemented using:
+
+int has_permission(const char *path, const char *role, int permission);
+manager → uses owner bits
+inspector → uses group bits
+
+Example:
+
+has_permission(path, role, S_IRUSR); // read check
+has_permission(path, role, S_IWUSR); // write check
+🏗️ Implemented Features
+✅ 1. District Creation (--add)
+
+Command:
+
+./city_manager --role manager --user Vlad --add downtown
+
+Functionality:
+
+creates directory districts/downtown
+creates required files:
+reports.dat
+district.cfg
+logged_district
+sets correct permissions using chmod()
+logs the action
+✅ 2. Logging System
+
+All actions are recorded in:
+
+logged_district
+
+Format:
+
+[timestamp] role user action
+
+Example:
+
+[1710000000] manager Vlad created district downtown
+timestamp is UNIX time (time(NULL))
+logs are appended using O_APPEND
+✅ 3. Report Storage (--report)
+
+Command:
+
+./city_manager --role inspector --user Vlad --report downtown
+📦 Report Structure
+typedef struct {
+    int id;
+    char inspector[32];
+    float latitude;
+    float longitude;
+    char category[32];
+    int severity;
+    time_t timestamp;
+    char description[128];
+} Report;
+🧠 Features
+reports stored in binary format
+appended to reports.dat
+each report has fixed size
+🔢 Auto-increment ID
+int count = st.st_size / sizeof(Report);
+int next_id = count + 1;
+🔐 Permission enforcement
+checks write permission before adding report
+denies access if role is not allowed
+📝 Logging
+
+Each report action is logged:
+
+[time] inspector Vlad added report in downtown
+✅ 4. Listing Reports (--list)
+
+Command:
+
+./city_manager --role inspector --user Vlad --list downtown
+📖 Functionality
+reads all reports from reports.dat
+displays report data:
+ID
+inspector
+category
+severity
+📊 Metadata Display (Required)
+
+Uses stat() to display:
+
+file size
+last modification time
+permissions (symbolic format)
+
+Example:
+
+File size: 256 bytes
+Last modified: Wed Apr 22 18:30:00 2026
+Permissions: rw-rw-r--
+🔐 Permission enforcement
+checks read permission before accessing file
+🧠 Key Concepts Used
+UNIX system calls:
+open, read, write, close
+mkdir, chmod
+stat
+Binary file handling
+File permission bits:
+S_IRUSR, S_IWUSR, etc.
+Processed command-line arguments
+⚠️ Current Limitations
+report data is hardcoded (not read from CLI)
+district.cfg is not fully used yet
+no report deletion implemented
+no advanced filtering/search
+🚀 Progress Summary
+
+✔ File system structure implemented
+✔ Binary storage working
+✔ Logging system implemented
+✔ Metadata and permissions handled
+✔ Role-based access control enforced
+
+🔜 Next Steps
+implement full use of district.cfg
+allow dynamic report input
+add report deletion
+move to Phase 2:
+processes
+pipes
+signals
+🏁 Conclusion
+
+The system successfully implements the core requirements of Phase 1:
+
+structured data storage
+UNIX permission enforcement
+logging and monitoring capabilities
