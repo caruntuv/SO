@@ -8,6 +8,7 @@
 #include <time.h>
 #include <errno.h>
 #include <dirent.h>
+#include <sys/wait.h>
 
 #define NAME_LEN 32
 #define CATEGORY_LEN 32
@@ -541,6 +542,76 @@ void filter_reports(const char *district, const char *role, int condition_count,
     close(fd);
 }
 
+void remove_district(const char *district, const char *role) {
+    if (strcmp(role, "manager") != 0) {
+        printf("Only manager can remove districts!\n");
+        return;
+    }
+
+    char district_path[150];
+    char linkname[100];
+
+    strcpy(district_path, "districts/");
+    strcat(district_path, district);
+
+    strcpy(linkname, "active_reports-");
+    strcat(linkname, district);
+
+    /*
+       safety check:
+       do not allow empty district names or paths containing ..
+       this prevents dangerous rm -rf usage
+    */
+    if (strlen(district) == 0 || strstr(district, "..") != NULL || strchr(district, '/') != NULL) {
+        printf("Invalid district name. Refusing to delete.\n");
+        return;
+    }
+
+    pid_t pid = fork();
+
+    if (pid < 0) {
+        perror("fork error");
+        return;
+    }
+
+    if (pid == 0) {
+        execlp("rm", "rm", "-rf", district_path, NULL);
+
+        perror("execlp error");
+        exit(1);
+    } else {
+        int status;
+        waitpid(pid, &status, 0);
+
+        if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+            unlink(linkname);
+            printf("District '%s' removed successfully.\n", district);
+        } else {
+            printf("Error removing district '%s'.\n", district);
+        }
+    }
+}
+void create_symlink(const char *district) {
+    char target[150];
+    char linkname[100];
+
+    strcpy(target, "districts/");
+    strcat(target, district);
+    strcat(target, "/reports.dat");
+
+    strcpy(linkname, "active_reports-");
+    strcat(linkname, district);
+
+    unlink(linkname);
+
+    if (symlink(target, linkname) == -1) {
+        perror("Error creating symlink");
+        return;
+    }
+
+    printf("Symlink created: %s -> %s\n", linkname, target);
+}
+
 int main(int argc, char *argv[]) {
     if (argc < 6) {
         printf("Usage:\n");
@@ -564,6 +635,7 @@ int main(int argc, char *argv[]) {
     int threshold_value = 0;
     int filter_flag = 0;
     int filter_start_index = 0;
+    int remove_district_flag = 0;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--role") == 0 && i + 1 < argc) {
@@ -603,12 +675,18 @@ int main(int argc, char *argv[]) {
     filter_start_index = i + 2;
     filter_flag = 1;
     break;
+
+}
+	    if (strcmp(argv[i], "--remove_district") == 0 && i + 1 < argc) {
+    strcpy(district, argv[i + 1]);
+    remove_district_flag = 1;
 }
     }
 
     if (add_flag) {
         create_district(district);
         add_report(district, user, role);
+	create_symlink(district);
 
         char action[100] = "added report in ";
         strcat(action, district);
@@ -626,6 +704,9 @@ int main(int argc, char *argv[]) {
 }
     else if (filter_flag) {
     filter_reports(district, role, argc - filter_start_index, &argv[filter_start_index]);
+}
+    else if (remove_district_flag) {
+    remove_district(district, role);
 }
     else {
         printf("No valid command provided.\n");
