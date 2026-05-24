@@ -42,10 +42,6 @@ int monitor_exists(void)
 
     pid_t existing_pid = atoi(buffer);
 
-    /*
-       kill(pid, 0)
-       checks if process exists
-    */
     if (kill(existing_pid, 0) == 0)
     {
         dprintf(STDOUT_FILENO,

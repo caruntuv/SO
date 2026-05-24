@@ -30,7 +30,7 @@ void check_symlinks() {
     DIR *dir = opendir(".");
     if (!dir) return;
 
-    struct dirent *entry;//structura de date din biblioteca dirent
+    struct dirent *entry;
 
     while ((entry = readdir(dir)) != NULL) {
         if (strncmp(entry->d_name, "active_reports-", 15) == 0) {
@@ -41,14 +41,14 @@ void check_symlinks() {
                 continue;
             }
 
-            if (S_ISLNK(st.st_mode)) {//verifica daca este symlink
+            if (S_ISLNK(st.st_mode)) {
                 char target[200];
                 int len = readlink(entry->d_name, target, sizeof(target) - 1);
 
                 if (len != -1) {
                     target[len] = '\0';
 
-                    if (access(target, F_OK) == -1) {//constanta folosita pentru functie din biblioteca unistd
+                    if (access(target, F_OK) == -1) {
                         printf("Warning: dangling symlink %s -> %s\n", entry->d_name, target);
                     }
                 }
@@ -96,7 +96,7 @@ void print_permissions(mode_t mode) {
 }
 
 void create_district(const char *name) {
-  mkdir("districts", 0750);//750-> owner rwx, group rx si others nimic
+  mkdir("districts", 0750);
     chmod("districts", 0750);
 
     char full_path[100];
@@ -123,13 +123,13 @@ void create_district(const char *name) {
         return;
     }
     close(fd1);
-    chmod(reports_path, 0664);// owner rw, group rw, other read
+    chmod(reports_path, 0664);
 
     char cfg_path[150];
     strcpy(cfg_path, full_path);
     strcat(cfg_path, "/district.cfg");
 
-    int fd2 = open(cfg_path, O_CREAT | O_RDWR, 0640);//0_creat creeaza fisierul daca nu exista
+    int fd2 = open(cfg_path, O_CREAT | O_RDWR, 0640);
     if (fd2 == -1) {
         perror("Error creating district.cfg");
         return;
@@ -149,7 +149,7 @@ void create_district(const char *name) {
         }
     }
     close(fd2);
-    chmod(cfg_path, 0640);//rw-, r, nimix
+    chmod(cfg_path, 0640);
 
     char log_path[150];
     strcpy(log_path, full_path);
@@ -161,7 +161,7 @@ void create_district(const char *name) {
         return;
     }
     close(fd3);
-    chmod(log_path, 0644);// rw, r, r
+    chmod(log_path, 0644);
 }
 
 void log_action(const char *district, const char *role, const char *user, const char *action) {
@@ -226,7 +226,7 @@ int add_report(const char *district, const char *user, const char *role) {
     strcat(path, district);
     strcat(path, "/reports.dat");
 
-    if (!has_permission(path, role, S_IWUSR)) {//user are write permission
+    if (!has_permission(path, role, S_IWUSR)) {
         printf("Write access denied for this role!\n");
         return 0;
     }
@@ -244,12 +244,12 @@ int add_report(const char *district, const char *user, const char *role) {
         perror("stat error");
         close(fd);
         return 0;
-    }//extragerea datelor fisierului
+    }
 
     int count = st.st_size / sizeof(Report);
     int next_id = count + 1;
 
-    Report r;//structura de date implementata mai sus
+    Report r;
 
     r.id = next_id;
     strncpy(r.inspector, user, NAME_LEN - 1);
@@ -613,11 +613,6 @@ void remove_district(const char *district, const char *role) {
     strcpy(linkname, "active_reports-");
     strcat(linkname, district);
 
-    /*
-       safety check:
-       do not allow empty district names or paths containing ..
-       this prevents dangerous rm -rf usage
-    */
     if (strlen(district) == 0 || strstr(district, "..") != NULL || strchr(district, '/') != NULL) {
         printf("Invalid district name. Refusing to delete.\n");
         return;
@@ -748,20 +743,38 @@ int main(int argc, char *argv[]) {
         }
     } else if (list_flag) {
         list_reports(district, role);
+        char action[100] = "listed reports in ";
+        strcat(action, district);
+        log_action(district, role, user, action);
     }else if (view_flag) {
-    view_report(district, role, view_id);
+        view_report(district, role, view_id);
+        char action[100];
+        snprintf(action, sizeof(action), "viewed report %d in %s", view_id, district);
+        log_action(district, role, user, action);
     }
     else if (remove_flag) {
-    remove_report(district, role, remove_id);
+        remove_report(district, role, remove_id);
+        char action[100];
+        snprintf(action, sizeof(action), "removed report %d from %s", remove_id, district);
+        log_action(district, role, user, action);
     }
     else if (update_flag) {
-    update_threshold(district, role, threshold_value);
+        update_threshold(district, role, threshold_value);
+        char action[100];
+        snprintf(action, sizeof(action), "updated threshold in %s to %d", district, threshold_value);
+        log_action(district, role, user, action);
     }
     else if (filter_flag) {
-    filter_reports(district, role, argc - filter_start_index, &argv[filter_start_index]);
+        filter_reports(district, role, argc - filter_start_index, &argv[filter_start_index]);
+        char action[100] = "filtered reports in ";
+        strcat(action, district);
+        log_action(district, role, user, action);
     }
     else if (remove_district_flag) {
-    remove_district(district, role);
+        char action[100] = "removed district ";
+        strcat(action, district);
+        log_action(district, role, user, action);
+        remove_district(district, role);
     }
     else {
         printf("No valid command provided.\n");
