@@ -1,51 +1,30 @@
-Raport privind utilizarea inteligentei artificiale
+Raport privind utilizarea inteligentei artificiale - Phase 1
 
--AI ales
-Pentru implementarea functionalitatii de filtrare a rapoartelor am utilizat ChatGPT PRO.
+Pentru Phase 1 am utilizat ChatGPT PRO ca ajutor pentru functiile de filtrare:
 
--Scopul utilizarii AI
-Conform cerintei din proiect, AI-ul a fost utilizat pentru implementarea functiilor:
-parse_condition()
-match_condition()
+- parse_condition()
+- match_condition()
 
-Acestea sunt folosite pentru interpretarea si evaluarea conditiilor introduse de utilizator in comanda filter.
+Prompturile principale au fost:
 
--Prompt-uri utilizate
-Am formulat cerinte de tipul:
-„Genereaza o functie in C care parseaza un string de forma field:operator:value”
-„Genereaza o functie care verifica daca un raport respecta o conditie pe baza campurilor sale”
-Cod generat de AI
+- Genereaza o functie in C care parseaza o conditie de forma field:operator:value.
+- Genereaza o functie care verifica daca un raport respecta o conditie.
 
-parse_condition()
-Functia separa un string de forma:
-severity:>=:2
+Structura explicata catre AI a fost Report, cu campurile id, inspector, latitude,
+longitude, category, severity, timestamp si description.
 
-in trei componente:
-field = "severity"
-operator = ">="
-value = "2"
+Codul generat a fost verificat si adaptat astfel incat:
 
-Implementarea foloseste functia strtok().
+- severity si timestamp sunt comparate numeric
+- category si inspector sunt comparate ca string-uri
+- operatorii ==, !=, <, <=, > si >= sunt tratati in functie de tipul campului
+- conditiile invalide sunt respinse
 
-match_condition()
-Functia verifica daca un obiect de tip Report respecta o conditie data.
+Logica principala a comenzii filter a fost integrata manual in city_manager:
+fisierul reports.dat este deschis, rapoartele sunt citite pe rand cu read(), fiecare
+conditie este parsata si raportul este afisat doar daca respecta toate conditiile.
 
-identifica campul (severity, category, inspector, timestamp)
-converteste valoarea la tipul necesar
-aplica operatorul de comparatie
+Mai multe detalii despre folosirea AI in toate fazele sunt in:
 
--Integrarea in aplicatie
-
-Functiile au fost integrate in functia:
-filter_reports()
-
-Aceasta:
-citeste fiecare raport din fisierul binar
-aplica conditiile introduse de utilizator
-afiseaza doar rapoartele care respecta toate conditiile
-
--Observatii personale
-
-Utilizarea AI-ului a facut implementarea acestei parti mai rapida si mai usor de realizat.
-
-Functiile generate au fost corecte si au oferit o baza buna de lucru. Integrarea lor in proiect nu a fost dificila, insa a fost necesara intelegerea modului in care functioneaza si adaptarea la structura aplicatiei(schimbari in main-ul aplicatiei).
+- AI_usage-phases_1_and_2.md
+- AI_usage-ALL-phases.md
